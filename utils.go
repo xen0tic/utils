@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -275,6 +276,17 @@ func SplitPackage(input []byte, array [][]byte) [][]byte {
 		}
 		return SplitPackage(input[iLen:], array)
 	}
+	
+	return array
+}
+
+func SortArray(array [][]byte) [][]byte {
+	
+	sort.Slice(array, func(i, j int) bool {
+		a := GetPackageSnInNumber(array[i])
+		b := GetPackageSnInNumber(array[j])
+		return a < b
+	})
 	
 	return array
 }
