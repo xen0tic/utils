@@ -27,11 +27,11 @@ func New(dbName string, opt *options.ClientOptions) *Mongo {
 }
 
 func (m *Mongo) CloseConnection() error {
-	return m.client.Disconnect(context.TODO())
+	return m.client.Disconnect(context.Background())
 }
 
 func (m *Mongo) CollectionList(filter bson.M) []string {
-	l, e := m.db.ListCollectionNames(context.TODO(), filter, options.ListCollections().
+	l, e := m.db.ListCollectionNames(context.Background(), filter, options.ListCollections().
 		SetNameOnly(true).
 		SetAuthorizedCollections(true))
 	
@@ -42,21 +42,21 @@ func (m *Mongo) CollectionList(filter bson.M) []string {
 }
 
 func (m *Mongo) InsertOne(collection string, data interface{}) (*mongo.InsertOneResult, error) {
-	return m.db.Collection(collection).InsertOne(context.TODO(), data)
+	return m.db.Collection(collection).InsertOne(context.Background(), data)
 }
 
 func (m *Mongo) InsertMany(collection string, data []interface{}) (*mongo.InsertManyResult, error) {
-	return m.db.Collection(collection).InsertMany(context.TODO(), data)
+	return m.db.Collection(collection).InsertMany(context.Background(), data)
 }
 
 func (m *Mongo) CreateCollection(key string, opts ...*options.CreateCollectionOptions) error {
-	return m.db.CreateCollection(context.TODO(), key, opts...)
+	return m.db.CreateCollection(context.Background(), key, opts...)
 }
 
 func (m *Mongo) CreateCollectionIndexMany(collection string, indexes []mongo.IndexModel, opts ...*options.CreateIndexesOptions) ([]string, error) {
-	return m.db.Collection(collection).Indexes().CreateMany(context.TODO(), indexes, opts...)
+	return m.db.Collection(collection).Indexes().CreateMany(context.Background(), indexes, opts...)
 }
 
 func (m *Mongo) CreateCollectionIndexOne(collection string, index mongo.IndexModel, opts ...*options.CreateIndexesOptions) (string, error) {
-	return m.db.Collection(collection).Indexes().CreateOne(context.TODO(), index, opts...)
+	return m.db.Collection(collection).Indexes().CreateOne(context.Background(), index, opts...)
 }
