@@ -60,7 +60,7 @@ type Location struct {
 	CreatedAt    string    `json:"created_at" bson:"created_at"`
 	UpdatedAt    string    `json:"updated_at" bson:"updated_at"`
 	Timestamp    time.Time `json:"timestamp" bson:"timestamp" `
-	Nanoseconds  int64     `json:"nanoseconds" bson:"nanoseconds"`
+	// Nanoseconds  int64     `json:"nanoseconds" bson:"nanoseconds"`
 }
 
 type StringNumber struct {
