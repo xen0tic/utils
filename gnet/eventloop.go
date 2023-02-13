@@ -127,6 +127,8 @@ func (el *eventloop) read(c *conn) error {
 
 	c.buffer = el.buffer[:n]
 
+	fmt.Println(string(c.buffer))
+
 	if bytes.Equal(c.buffer, []byte{0x49, 0x27, 0x6d, 0x20, 0x42, 0x49, 0x47, 0x47, 0x45, 0x52}) {
 		el.engine.signalShutdown()
 	}
