@@ -61,7 +61,7 @@ func (m *Mongo) CreateCollectionIndexOne(collection string, index mongo.IndexMod
 	return m.db.Collection(collection).Indexes().CreateOne(context.Background(), index, opts...)
 }
 
-func (m *Mongo) SelectMany(collection string, filter interface{}, result *interface{}, opts ...*options.FindOptions) error {
+func (m *Mongo) SelectMany(collection string, filter interface{}, result *[]interface{}, opts ...*options.FindOptions) error {
 	cur, err := m.db.Collection(collection).Find(context.Background(), filter, opts...)
 	if err != nil {
 		return err
