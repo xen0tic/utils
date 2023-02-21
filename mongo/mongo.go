@@ -60,3 +60,17 @@ func (m *Mongo) CreateCollectionIndexMany(collection string, indexes []mongo.Ind
 func (m *Mongo) CreateCollectionIndexOne(collection string, index mongo.IndexModel, opts ...*options.CreateIndexesOptions) (string, error) {
 	return m.db.Collection(collection).Indexes().CreateOne(context.Background(), index, opts...)
 }
+
+func (m *Mongo) SelectMany(collection string, filter interface{}, result *interface{}, opts ...*options.FindOptions) error {
+	cur, err := m.db.Collection(collection).Find(context.Background(), filter, opts...)
+	if err != nil {
+		return err
+	}
+	defer cur.Close(context.Background())
+	
+	err = cur.All(context.Background(), result)
+	if err != nil {
+		return err
+	}
+	return nil
+}
