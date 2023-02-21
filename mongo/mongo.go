@@ -74,3 +74,8 @@ func (m *Mongo) SelectMany(collection string, filter interface{}, result *[]inte
 	}
 	return nil
 }
+
+func (m *Mongo) Drop(collection string) error {
+	return m.db.Collection(collection).Drop(context.Background())
+}
+
