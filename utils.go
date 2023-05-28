@@ -47,7 +47,7 @@ func setOutput(ws zapcore.WriteSyncer, conf zap.Config) zap.Option {
 	default:
 		panic("unknown encoding")
 	}
-	
+
 	return zap.WrapCore(func(core zapcore.Core) zapcore.Core {
 		return zapcore.NewCore(enc, ws, conf.Level)
 	})
@@ -70,15 +70,15 @@ func getWriteSyncer(logName string) zapcore.WriteSyncer {
 
 func InitLogger(filePath string) (*zap.Logger, error) {
 	var cfg zap.Config
-	
+
 	pwd, _ := os.Getwd()
 	directory := fmt.Sprintf("%s/log", pwd)
 	if _, err := os.Stat(directory); os.IsNotExist(err) {
 		_ = os.Mkdir(directory, 0777)
 	}
-	
+
 	filePath = fmt.Sprintf("%s/%s", directory, filePath)
-	
+
 	cfg = zap.NewProductionConfig()
 	cfg.DisableCaller = true
 	cfg.Encoding = "json"
@@ -86,7 +86,7 @@ func InitLogger(filePath string) (*zap.Logger, error) {
 	cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("Mon, 2006-01-02 03:04:05 MST")
 	cfg.OutputPaths = []string{filePath}
 	sw := getWriteSyncer(filePath)
-	
+
 	return cfg.Build(setOutput(sw, cfg))
 }
 
@@ -223,7 +223,7 @@ func GetDistance(p1 []float64, p2 []float64) float64 {
 	dLong := Rad(p2[1] - p1[1])
 	a := math.Sin(dLat/2)*math.Sin(dLat/2) + math.Cos(Rad(p1[0]))*math.Cos(Rad(p2[0]))*math.Sin(dLong/2)*math.Sin(dLong/2)
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
-	
+
 	return float64(R) * c
 }
 
@@ -251,23 +251,23 @@ func GetPackageSnInNumber(input []byte) int {
 }
 
 func SplitPackage(input []byte, array [][]byte) [][]byte {
-	
+
 	if len(input) < 10 {
 		return array
 	}
-	
+
 	if !concox.IsNormalPackage(input) && !concox.IsLongPackage(input) {
 		return array
 	}
-	
+
 	iLen := int(input[2])
 	if concox.IsLongPackage(input) {
 		fd, _ := strconv.ParseInt(ConvertByteToString(input[2:4]), 16, 64)
 		iLen = int(fd) + 1
 	}
-	
+
 	iLen += 5
-	
+
 	if len(input) == iLen {
 		array = append(array, input)
 	} else if len(input) > iLen {
@@ -276,18 +276,18 @@ func SplitPackage(input []byte, array [][]byte) [][]byte {
 		}
 		return SplitPackage(input[iLen:], array)
 	}
-	
+
 	return array
 }
 
 func SortArray(array [][]byte) [][]byte {
-	
+
 	sort.Slice(array, func(i, j int) bool {
 		a := GetPackageSnInNumber(array[i])
 		b := GetPackageSnInNumber(array[j])
 		return a < b
 	})
-	
+
 	return array
 }
 
