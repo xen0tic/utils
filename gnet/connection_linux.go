@@ -17,13 +17,13 @@
 
 package gnet
 
-import "github.com/xen0tic/utils/gnet/internal/netpoll"
+import "github.com/panjf2000/gnet/v2/internal/netpoll"
 
 func (c *conn) handleEvents(_ int, ev uint32) error {
 	// Don't change the ordering of processing EPOLLOUT | EPOLLRDHUP / EPOLLIN unless you're 100%
 	// sure what you're doing!
 	// Re-ordering can easily introduce bugs and bad side-effects, as I found out painfully in the past.
-	
+
 	// We should always check for the EPOLLOUT event first, as we must try to send the leftover data back to
 	// the peer when any error occurs on a connection.
 	//
@@ -39,6 +39,6 @@ func (c *conn) handleEvents(_ int, ev uint32) error {
 	if ev&netpoll.InEvents != 0 {
 		return c.loop.read(c)
 	}
-	
+
 	return nil
 }

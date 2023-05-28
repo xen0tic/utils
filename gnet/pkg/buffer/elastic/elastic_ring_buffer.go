@@ -17,8 +17,8 @@ package elastic
 import (
 	"io"
 
-	"github.com/xen0tic/utils/gnet/pkg/buffer/ring"
-	rbPool "github.com/xen0tic/utils/gnet/pkg/pool/ringbuffer"
+	"github.com/panjf2000/gnet/v2/pkg/buffer/ring"
+	rbPool "github.com/panjf2000/gnet/v2/pkg/pool/ringbuffer"
 )
 
 // RingBuffer is the elastic wrapper of ring.Buffer.
@@ -30,7 +30,7 @@ func (b *RingBuffer) instance() *ring.Buffer {
 	if b.rb == nil {
 		b.rb = rbPool.Get()
 	}
-	
+
 	return b.rb
 }
 
@@ -63,7 +63,7 @@ func (b *RingBuffer) Discard(n int) (int, error) {
 	if b.rb == nil {
 		return 0, ring.ErrIsEmpty
 	}
-	
+
 	defer b.done()
 	return b.rb.Discard(n)
 }
@@ -83,7 +83,7 @@ func (b *RingBuffer) Read(p []byte) (int, error) {
 	if b.rb == nil {
 		return 0, ring.ErrIsEmpty
 	}
-	
+
 	defer b.done()
 	return b.rb.Read(p)
 }
@@ -93,7 +93,7 @@ func (b *RingBuffer) ReadByte() (byte, error) {
 	if b.rb == nil {
 		return 0, ring.ErrIsEmpty
 	}
-	
+
 	defer b.done()
 	return b.rb.ReadByte()
 }
@@ -174,7 +174,7 @@ func (b *RingBuffer) WriteTo(w io.Writer) (int64, error) {
 	if b.rb == nil {
 		return 0, ring.ErrIsEmpty
 	}
-	
+
 	defer b.done()
 	return b.instance().WriteTo(w)
 }

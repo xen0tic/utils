@@ -20,8 +20,8 @@ package gnet
 import (
 	"runtime"
 
-	"github.com/xen0tic/utils/gnet/internal/netpoll"
-	"github.com/xen0tic/utils/gnet/pkg/errors"
+	"github.com/panjf2000/gnet/v2/internal/netpoll"
+	"github.com/panjf2000/gnet/v2/pkg/errors"
 )
 
 func (el *eventloop) activateMainReactor(lockOSThread bool) {
@@ -29,9 +29,9 @@ func (el *eventloop) activateMainReactor(lockOSThread bool) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 	}
-	
+
 	defer el.engine.signalShutdown()
-	
+
 	err := el.poller.Polling(func(fd int, ev uint32) error { return el.engine.accept(fd, ev) })
 	if err == errors.ErrEngineShutdown {
 		el.engine.opts.Logger.Debugf("main reactor is exiting in terms of the demand from user, %v", err)
@@ -45,18 +45,18 @@ func (el *eventloop) activateSubReactor(lockOSThread bool) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 	}
-	
+
 	defer func() {
 		el.closeAllSockets()
 		el.engine.signalShutdown()
 	}()
-	
+
 	err := el.poller.Polling(func(fd int, ev uint32) error {
 		if c, ack := el.connections[fd]; ack {
 			// Don't change the ordering of processing EPOLLOUT | EPOLLRDHUP / EPOLLIN unless you're 100%
 			// sure what you're doing!
 			// Re-ordering can easily introduce bugs and bad side-effects, as I found out painfully in the past.
-			
+
 			// We should always check for the EPOLLOUT event first, as we must try to send the leftover data back to
 			// the peer when any error occurs on a connection.
 			//
@@ -75,7 +75,7 @@ func (el *eventloop) activateSubReactor(lockOSThread bool) {
 		}
 		return nil
 	})
-	
+
 	if err == errors.ErrEngineShutdown {
 		el.engine.opts.Logger.Debugf("event-loop(%d) is exiting in terms of the demand from user, %v", el.idx, err)
 	} else if err != nil {
@@ -88,19 +88,19 @@ func (el *eventloop) run(lockOSThread bool) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 	}
-	
+
 	defer func() {
 		el.closeAllSockets()
 		el.ln.close()
 		el.engine.signalShutdown()
 	}()
-	
+
 	err := el.poller.Polling(func(fd int, ev uint32) error {
 		if c, ok := el.connections[fd]; ok {
 			// Don't change the ordering of processing EPOLLOUT | EPOLLRDHUP / EPOLLIN unless you're 100%
 			// sure what you're doing!
 			// Re-ordering can easily introduce bugs and bad side-effects, as I found out painfully in the past.
-			
+
 			// We should always check for the EPOLLOUT event first, as we must try to send the leftover data back to
 			// the peer when any error occurs on a connection.
 			//
@@ -120,6 +120,6 @@ func (el *eventloop) run(lockOSThread bool) {
 		}
 		return el.accept(fd, ev)
 	})
-	
+
 	el.getLogger().Debugf("event-loop(%d) is exiting due to error: %v", el.idx, err)
 }

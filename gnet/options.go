@@ -17,7 +17,7 @@ package gnet
 import (
 	"time"
 
-	"github.com/xen0tic/utils/gnet/pkg/logging"
+	"github.com/panjf2000/gnet/v2/pkg/logging"
 )
 
 // Option is a function that will set up option.
@@ -43,28 +43,31 @@ const (
 // Options are configurations for the gnet application.
 type Options struct {
 	// ================================== Options for only server-side ==================================
-	
+
 	// Multicore indicates whether the engine will be effectively created with multi-cores, if so,
 	// then you must take care with synchronizing memory between all event callbacks, otherwise,
 	// it will run the engine with single thread. The number of threads in the engine will be automatically
 	// assigned to the value of logical CPUs usable by the current process.
 	Multicore bool
-	
+
 	// NumEventLoop is set up to start the given number of event-loop goroutine.
 	// Note: Setting up NumEventLoop will override Multicore.
 	NumEventLoop int
-	
+
 	// LB represents the load-balancing algorithm used when assigning new connections.
 	LB LoadBalancing
-	
+
 	// ReuseAddr indicates whether to set up the SO_REUSEADDR socket option.
 	ReuseAddr bool
-	
+
 	// ReusePort indicates whether to set up the SO_REUSEPORT socket option.
 	ReusePort bool
-	
+
+	// MulticastInterfaceIndex is the index of the interface name where the multicast UDP addresses will be bound to.
+	MulticastInterfaceIndex int
+
 	// ============================= Options for both server-side and client-side =============================
-	
+
 	// ReadBufferCap is the maximum number of bytes that can be read from the peer when the readable event comes.
 	// The default value is 64KB, it can either be reduced to avoid starving the subsequent connections or increased
 	// to read more data from a socket.
@@ -72,7 +75,7 @@ type Options struct {
 	// Note that ReadBufferCap will always be converted to the least power of two integer value greater than
 	// or equal to its real amount.
 	ReadBufferCap int
-	
+
 	// WriteBufferCap is the maximum number of bytes that a static outbound buffer can hold,
 	// if the data exceeds this value, the overflow will be stored in the elastic linked list buffer.
 	// The default value is 64KB.
@@ -80,50 +83,45 @@ type Options struct {
 	// Note that WriteBufferCap will always be converted to the least power of two integer value greater than
 	// or equal to its real amount.
 	WriteBufferCap int
-	
+
 	// LockOSThread is used to determine whether each I/O event-loop is associated to an OS thread, it is useful when you
 	// need some kind of mechanisms like thread local storage, or invoke certain C libraries (such as graphics lib: GLib)
 	// that require thread-level manipulation via cgo, or want all I/O event-loops to actually run in parallel for a
 	// potential higher performance.
 	LockOSThread bool
-	
+
 	// Ticker indicates whether the ticker has been set up.
 	Ticker bool
-	
+
 	// TCPKeepAlive sets up a duration for (SO_KEEPALIVE) socket option.
 	TCPKeepAlive time.Duration
-	
+
 	// TCPNoDelay controls whether the operating system should delay
 	// packet transmission in hopes of sending fewer packets (Nagle's algorithm).
 	//
 	// The default is true (no delay), meaning that data is sent
 	// as soon as possible after a write operation.
 	TCPNoDelay TCPSocketOpt
-	
+
 	// SocketRecvBuffer sets the maximum socket receive buffer in bytes.
 	SocketRecvBuffer int
-	
+
 	// SocketSendBuffer sets the maximum socket send buffer in bytes.
 	SocketSendBuffer int
-	
+
 	// LogPath the local path where logs will be written, this is the easiest way to set up logging,
 	// gnet instantiates a default uber-go/zap logger with this given log path, you are also allowed to employ
 	// you own logger during the lifetime by implementing the following log.Logger interface.
 	//
 	// Note that this option can be overridden by the option Logger.
 	LogPath string
-	
+
 	// LogLevel indicates the logging level, it should be used along with LogPath.
 	LogLevel logging.Level
-	
+
 	// Logger is the customized logger for logging info, if it is not set,
 	// then gnet will use the default logger powered by go.uber.org/zap.
 	Logger logging.Logger
-	
-	IdleTime time.Duration
-	
-	tick      time.Duration
-	wheelSize int64
 }
 
 // WithOptions sets up all options.
@@ -245,20 +243,9 @@ func WithLogger(logger logging.Logger) Option {
 	}
 }
 
-func WithIdleTime(t time.Duration) Option {
-	return func(o *Options) {
-		o.IdleTime = t
-	}
-}
-
-func WithWheelSize(size int64) Option {
-	return func(o *Options) {
-		o.wheelSize = size
-	}
-}
-
-func WithTick(t time.Duration) Option {
-	return func(o *Options) {
-		o.tick = t
+// WithMulticastInterfaceIndex sets the interface name where UDP multicast sockets will be bound to.
+func WithMulticastInterfaceIndex(idx int) Option {
+	return func(opts *Options) {
+		opts.MulticastInterfaceIndex = idx
 	}
 }

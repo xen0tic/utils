@@ -20,9 +20,10 @@ package socket
 import (
 	"net"
 
-	"github.com/xen0tic/utils/gnet/internal/toolkit"
-	bsPool "github.com/xen0tic/utils/gnet/pkg/pool/byteslice"
 	"golang.org/x/sys/unix"
+
+	"github.com/panjf2000/gnet/v2/internal/bs"
+	bsPool "github.com/panjf2000/gnet/v2/pkg/pool/byteslice"
 )
 
 var ipv4InIPv6Prefix = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff}
@@ -92,7 +93,7 @@ func int2decimal(i uint) string {
 	if i == 0 {
 		return "0"
 	}
-	
+
 	// Assemble decimal in reverse order.
 	b := bsPool.Get(32)
 	bp := len(b)
@@ -100,5 +101,5 @@ func int2decimal(i uint) string {
 		bp--
 		b[bp] = byte(i%10) + '0'
 	}
-	return toolkit.BytesToString(b[bp:])
+	return bs.BytesToString(b[bp:])
 }

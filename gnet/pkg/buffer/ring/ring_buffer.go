@@ -23,8 +23,9 @@ import (
 	"errors"
 	"io"
 
-	"github.com/xen0tic/utils/gnet/internal/toolkit"
-	bsPool "github.com/xen0tic/utils/gnet/pkg/pool/byteslice"
+	"github.com/panjf2000/gnet/v2/internal/bs"
+	"github.com/panjf2000/gnet/v2/internal/math"
+	bsPool "github.com/panjf2000/gnet/v2/pkg/pool/byteslice"
 )
 
 const (
@@ -56,7 +57,7 @@ func New(size int) *Buffer {
 	if size == 0 {
 		return &Buffer{bs: make([][]byte, 2), isEmpty: true}
 	}
-	size = toolkit.CeilToPowerOfTwo(size)
+	size = math.CeilToPowerOfTwo(size)
 	return &Buffer{
 		bs:      make([][]byte, 2),
 		buf:     make([]byte, size),
@@ -71,11 +72,11 @@ func (rb *Buffer) Peek(n int) (head []byte, tail []byte) {
 	if rb.isEmpty {
 		return
 	}
-	
+
 	if n <= 0 {
 		return rb.peekAll()
 	}
-	
+
 	if rb.w > rb.r {
 		m := rb.w - rb.r // length of ring-buffer
 		if m > n {
@@ -84,12 +85,12 @@ func (rb *Buffer) Peek(n int) (head []byte, tail []byte) {
 		head = rb.buf[rb.r : rb.r+m]
 		return
 	}
-	
+
 	m := rb.size - rb.r + rb.w // length of ring-buffer
 	if m > n {
 		m = n
 	}
-	
+
 	if rb.r+m <= rb.size {
 		head = rb.buf[rb.r : rb.r+m]
 	} else {
@@ -98,7 +99,7 @@ func (rb *Buffer) Peek(n int) (head []byte, tail []byte) {
 		c2 := m - c1
 		tail = rb.buf[:c2]
 	}
-	
+
 	return
 }
 
@@ -107,17 +108,17 @@ func (rb *Buffer) peekAll() (head []byte, tail []byte) {
 	if rb.isEmpty {
 		return
 	}
-	
+
 	if rb.w > rb.r {
 		head = rb.buf[rb.r:rb.w]
 		return
 	}
-	
+
 	head = rb.buf[rb.r:]
 	if rb.w != 0 {
 		tail = rb.buf[:rb.w]
 	}
-	
+
 	return
 }
 
@@ -126,7 +127,7 @@ func (rb *Buffer) Discard(n int) (discarded int, err error) {
 	if n <= 0 {
 		return 0, nil
 	}
-	
+
 	discarded = rb.Buffered()
 	if n < discarded {
 		rb.r = (rb.r + n) % rb.size
@@ -151,11 +152,11 @@ func (rb *Buffer) Read(p []byte) (n int, err error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	
+
 	if rb.isEmpty {
 		return 0, ErrIsEmpty
 	}
-	
+
 	if rb.w > rb.r {
 		n = rb.w - rb.r
 		if n > len(p) {
@@ -168,12 +169,12 @@ func (rb *Buffer) Read(p []byte) (n int, err error) {
 		}
 		return
 	}
-	
+
 	n = rb.size - rb.r + rb.w
 	if n > len(p) {
 		n = len(p)
 	}
-	
+
 	if rb.r+n <= rb.size {
 		copy(p, rb.buf[rb.r:rb.r+n])
 	} else {
@@ -186,7 +187,7 @@ func (rb *Buffer) Read(p []byte) (n int, err error) {
 	if rb.r == rb.w {
 		rb.Reset()
 	}
-	
+
 	return
 }
 
@@ -203,7 +204,7 @@ func (rb *Buffer) ReadByte() (b byte, err error) {
 	if rb.r == rb.w {
 		rb.Reset()
 	}
-	
+
 	return
 }
 
@@ -218,12 +219,12 @@ func (rb *Buffer) Write(p []byte) (n int, err error) {
 	if n == 0 {
 		return
 	}
-	
+
 	free := rb.Available()
 	if n > free {
 		rb.grow(rb.size + n - free)
 	}
-	
+
 	if rb.w >= rb.r {
 		c1 := rb.size - rb.w
 		if c1 >= n {
@@ -239,13 +240,13 @@ func (rb *Buffer) Write(p []byte) (n int, err error) {
 		copy(rb.buf[rb.w:], p)
 		rb.w += n
 	}
-	
+
 	if rb.w == rb.size {
 		rb.w = 0
 	}
-	
+
 	rb.isEmpty = false
-	
+
 	return
 }
 
@@ -256,12 +257,12 @@ func (rb *Buffer) WriteByte(c byte) error {
 	}
 	rb.buf[rb.w] = c
 	rb.w++
-	
+
 	if rb.w == rb.size {
 		rb.w = 0
 	}
 	rb.isEmpty = false
-	
+
 	return nil
 }
 
@@ -273,11 +274,11 @@ func (rb *Buffer) Buffered() int {
 		}
 		return rb.size
 	}
-	
+
 	if rb.w > rb.r {
 		return rb.w - rb.r
 	}
-	
+
 	return rb.size - rb.r + rb.w
 }
 
@@ -299,17 +300,17 @@ func (rb *Buffer) Available() int {
 		}
 		return 0
 	}
-	
+
 	if rb.w < rb.r {
 		return rb.r - rb.w
 	}
-	
+
 	return rb.size - rb.w + rb.r
 }
 
 // WriteString writes the contents of the string s to buffer, which accepts a slice of bytes.
 func (rb *Buffer) WriteString(s string) (int, error) {
-	return rb.Write(toolkit.StringToBytes(s))
+	return rb.Write(bs.StringToBytes(s))
 }
 
 // Bytes returns all available read bytes. It does not move the read pointer and only copy the available data.
@@ -322,19 +323,19 @@ func (rb *Buffer) Bytes() []byte {
 		bb = append(bb, rb.buf[:rb.w]...)
 		return bb
 	}
-	
+
 	var bb []byte
 	if rb.w > rb.r {
 		bb = append(bb, rb.buf[rb.r:rb.w]...)
 		return bb
 	}
-	
+
 	bb = append(bb, rb.buf[rb.r:]...)
-	
+
 	if rb.w != 0 {
 		bb = append(bb, rb.buf[:rb.w]...)
 	}
-	
+
 	return bb
 }
 
@@ -345,7 +346,7 @@ func (rb *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
 		if rb.Available() < MinRead {
 			rb.grow(rb.Buffered() + MinRead)
 		}
-		
+
 		if rb.w >= rb.r {
 			m, err = r.Read(rb.buf[rb.w:])
 			if m < 0 {
@@ -395,7 +396,7 @@ func (rb *Buffer) WriteTo(w io.Writer) (int64, error) {
 	if rb.isEmpty {
 		return 0, ErrIsEmpty
 	}
-	
+
 	if rb.w > rb.r {
 		n := rb.w - rb.r
 		m, err := w.Write(rb.buf[rb.r : rb.r+n])
@@ -414,7 +415,7 @@ func (rb *Buffer) WriteTo(w io.Writer) (int64, error) {
 		}
 		return int64(m), nil
 	}
-	
+
 	n := rb.size - rb.r + rb.w
 	if rb.r+n <= rb.size {
 		m, err := w.Write(rb.buf[rb.r : rb.r+n])
@@ -433,7 +434,7 @@ func (rb *Buffer) WriteTo(w io.Writer) (int64, error) {
 		}
 		return int64(m), nil
 	}
-	
+
 	var cum int64
 	c1 := rb.size - rb.r
 	m, err := w.Write(rb.buf[rb.r:])
@@ -488,7 +489,7 @@ func (rb *Buffer) grow(newCap int) {
 		if newCap <= DefaultBufferSize {
 			newCap = DefaultBufferSize
 		} else {
-			newCap = toolkit.CeilToPowerOfTwo(newCap)
+			newCap = math.CeilToPowerOfTwo(newCap)
 		}
 	} else {
 		doubleCap := n + n

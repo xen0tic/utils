@@ -18,8 +18,8 @@ import (
 	"io"
 	"math"
 
-	"github.com/xen0tic/utils/gnet/pkg/buffer/linkedlist"
-	gerrors "github.com/xen0tic/utils/gnet/pkg/errors"
+	"github.com/panjf2000/gnet/v2/pkg/buffer/linkedlist"
+	gerrors "github.com/panjf2000/gnet/v2/pkg/errors"
 )
 
 // Buffer combines ring-buffer and list-buffer.
@@ -70,7 +70,7 @@ func (mb *Buffer) Discard(n int) (discarded int, err error) {
 	if n <= discarded {
 		return
 	}
-	
+
 	n -= discarded
 	var m int
 	m, err = mb.listBuffer.Discard(n)
@@ -105,7 +105,7 @@ func (mb *Buffer) Writev(bs [][]byte) (int, error) {
 		}
 		return n, nil
 	}
-	
+
 	writable := mb.ringBuffer.Available()
 	if mb.ringBuffer.Len() < mb.maxStaticBytes {
 		writable = mb.maxStaticBytes - mb.ringBuffer.Buffered()

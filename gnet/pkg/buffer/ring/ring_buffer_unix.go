@@ -18,8 +18,9 @@
 package ring
 
 import (
-	"github.com/xen0tic/utils/gnet/internal/io"
 	"golang.org/x/sys/unix"
+
+	"github.com/panjf2000/gnet/v2/internal/io"
 )
 
 // ========================= gnet specific APIs =========================

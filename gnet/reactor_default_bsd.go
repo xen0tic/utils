@@ -21,9 +21,10 @@ package gnet
 import (
 	"runtime"
 
-	"github.com/xen0tic/utils/gnet/internal/netpoll"
-	"github.com/xen0tic/utils/gnet/pkg/errors"
 	"golang.org/x/sys/unix"
+
+	"github.com/panjf2000/gnet/v2/internal/netpoll"
+	"github.com/panjf2000/gnet/v2/pkg/errors"
 )
 
 func (el *eventloop) activateMainReactor(lockOSThread bool) {
@@ -31,9 +32,9 @@ func (el *eventloop) activateMainReactor(lockOSThread bool) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 	}
-	
+
 	defer el.engine.signalShutdown()
-	
+
 	err := el.poller.Polling(func(fd int, filter int16) error { return el.engine.accept(fd, filter) })
 	if err == errors.ErrEngineShutdown {
 		el.engine.opts.Logger.Debugf("main reactor is exiting in terms of the demand from user, %v", err)
@@ -47,12 +48,12 @@ func (el *eventloop) activateSubReactor(lockOSThread bool) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 	}
-	
+
 	defer func() {
 		el.closeAllSockets()
 		el.engine.signalShutdown()
 	}()
-	
+
 	err := el.poller.Polling(func(fd int, filter int16) (err error) {
 		if c, ack := el.connections[fd]; ack {
 			switch filter {
@@ -80,13 +81,13 @@ func (el *eventloop) run(lockOSThread bool) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 	}
-	
+
 	defer func() {
 		el.closeAllSockets()
 		el.ln.close()
 		el.engine.signalShutdown()
 	}()
-	
+
 	err := el.poller.Polling(func(fd int, filter int16) (err error) {
 		if c, ack := el.connections[fd]; ack {
 			switch filter {

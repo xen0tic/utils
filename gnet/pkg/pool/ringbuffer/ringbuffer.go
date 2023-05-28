@@ -23,15 +23,15 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/xen0tic/utils/gnet/pkg/buffer/ring"
+	"github.com/panjf2000/gnet/v2/pkg/buffer/ring"
 )
 
 const (
 	minBitSize = 6 // 2**6=64 is a CPU cache line size
 	steps      = 20
-	
+
 	minSize = 1 << minBitSize
-	
+
 	calibrateCallsThreshold = 42000
 	maxPercentile           = 0.95
 )
@@ -47,10 +47,10 @@ type RingBuffer = ring.Buffer
 type Pool struct {
 	calls       [steps]uint64
 	calibrating uint64
-	
+
 	defaultSize uint64
 	maxSize     uint64
-	
+
 	pool sync.Pool
 }
 
@@ -86,11 +86,11 @@ func Put(b *RingBuffer) { builtinPool.Put(b) }
 // The buffer mustn't be accessed after returning to the pool.
 func (p *Pool) Put(b *RingBuffer) {
 	idx := index(b.Len())
-	
+
 	if atomic.AddUint64(&p.calls[idx], 1) > calibrateCallsThreshold {
 		p.calibrate()
 	}
-	
+
 	maxSize := int(atomic.LoadUint64(&p.maxSize))
 	if maxSize == 0 || b.Cap() <= maxSize {
 		b.Reset()
@@ -102,7 +102,7 @@ func (p *Pool) calibrate() {
 	if !atomic.CompareAndSwapUint64(&p.calibrating, 0, 1) {
 		return
 	}
-	
+
 	a := make(callSizes, 0, steps)
 	var callsSum uint64
 	for i := uint64(0); i < steps; i++ {
@@ -114,10 +114,10 @@ func (p *Pool) calibrate() {
 		})
 	}
 	sort.Sort(a)
-	
+
 	defaultSize := a[0].size
 	maxSize := defaultSize
-	
+
 	maxSum := uint64(float64(callsSum) * maxPercentile)
 	callsSum = 0
 	for i := 0; i < steps; i++ {
@@ -130,10 +130,10 @@ func (p *Pool) calibrate() {
 			maxSize = size
 		}
 	}
-	
+
 	atomic.StoreUint64(&p.defaultSize, defaultSize)
 	atomic.StoreUint64(&p.maxSize, maxSize)
-	
+
 	atomic.StoreUint64(&p.calibrating, 0)
 }
 

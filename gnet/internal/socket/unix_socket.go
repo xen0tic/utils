@@ -21,8 +21,9 @@ import (
 	"net"
 	"os"
 
-	"github.com/xen0tic/utils/gnet/pkg/errors"
 	"golang.org/x/sys/unix"
+
+	"github.com/panjf2000/gnet/v2/pkg/errors"
 )
 
 // GetUnixSockAddr the structured addresses based on the protocol and raw address.
@@ -31,14 +32,14 @@ func GetUnixSockAddr(proto, addr string) (sa unix.Sockaddr, family int, unixAddr
 	if err != nil {
 		return
 	}
-	
+
 	switch unixAddr.Network() {
 	case "unix":
 		sa, family = &unix.SockaddrUnix{Name: unixAddr.Name}, unix.AF_UNIX
 	default:
 		err = errors.ErrUnsupportedUDSProtocol
 	}
-	
+
 	return
 }
 
@@ -49,11 +50,11 @@ func udsSocket(proto, addr string, passive bool, sockOpts ...Option) (fd int, ne
 		family int
 		sa     unix.Sockaddr
 	)
-	
+
 	if sa, family, netAddr, err = GetUnixSockAddr(proto, addr); err != nil {
 		return
 	}
-	
+
 	if fd, err = sysSocket(family, unix.SOCK_STREAM, 0); err != nil {
 		err = os.NewSyscallError("socket", err)
 		return
@@ -68,23 +69,23 @@ func udsSocket(proto, addr string, passive bool, sockOpts ...Option) (fd int, ne
 			_ = unix.Close(fd)
 		}
 	}()
-	
+
 	for _, sockOpt := range sockOpts {
 		if err = sockOpt.SetSockOpt(fd, sockOpt.Opt); err != nil {
 			return
 		}
 	}
-	
+
 	if passive {
 		if err = os.NewSyscallError("bind", unix.Bind(fd, sa)); err != nil {
 			return
 		}
-		
+
 		// Set backlog size to the maximum.
 		err = os.NewSyscallError("listen", unix.Listen(fd, listenerBacklogMaxSize))
 	} else {
 		err = os.NewSyscallError("connect", unix.Connect(fd, sa))
 	}
-	
+
 	return
 }

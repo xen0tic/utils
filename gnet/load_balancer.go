@@ -18,7 +18,7 @@ import (
 	"hash/crc32"
 	"net"
 
-	"github.com/xen0tic/utils/gnet/internal/toolkit"
+	"github.com/panjf2000/gnet/v2/internal/bs"
 )
 
 // LoadBalancing represents the type of load-balancing algorithm.
@@ -27,11 +27,11 @@ type LoadBalancing int
 const (
 	// RoundRobin assigns the next accepted connection to the event-loop by polling event-loop list.
 	RoundRobin LoadBalancing = iota
-	
+
 	// LeastConnections assigns the next accepted connection to the event-loop that is
 	// serving the least number of active connections at the current time.
 	LeastConnections
-	
+
 	// SourceAddrHash assigns the next accepted connection to the event-loop by hashing the remote address.
 	SourceAddrHash
 )
@@ -44,20 +44,20 @@ type (
 		iterate(func(int, *eventloop) bool)
 		len() int
 	}
-	
+
 	// roundRobinLoadBalancer with Round-Robin algorithm.
 	roundRobinLoadBalancer struct {
 		nextLoopIndex int
 		eventLoops    []*eventloop
 		size          int
 	}
-	
+
 	// leastConnectionsLoadBalancer with Least-Connections algorithm.
 	leastConnectionsLoadBalancer struct {
 		eventLoops []*eventloop
 		size       int
 	}
-	
+
 	// sourceAddrHashLoadBalancer with Hash algorithm.
 	sourceAddrHashLoadBalancer struct {
 		eventLoops []*eventloop
@@ -140,8 +140,8 @@ func (lb *sourceAddrHashLoadBalancer) register(el *eventloop) {
 }
 
 // hash converts a string to a unique hash code.
-func (lb *sourceAddrHashLoadBalancer) hash(s string) int {
-	v := int(crc32.ChecksumIEEE(toolkit.StringToBytes(s)))
+func (*sourceAddrHashLoadBalancer) hash(s string) int {
+	v := int(crc32.ChecksumIEEE(bs.StringToBytes(s)))
 	if v >= 0 {
 		return v
 	}
