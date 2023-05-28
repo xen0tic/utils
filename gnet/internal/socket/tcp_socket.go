@@ -22,8 +22,9 @@ import (
 	"net"
 	"os"
 
-	"github.com/xen0tic/utils/gnet/pkg/errors"
 	"golang.org/x/sys/unix"
+
+	"github.com/panjf2000/gnet/v2/pkg/errors"
 )
 
 var listenerBacklogMaxSize = maxListenerBacklog()
@@ -31,17 +32,17 @@ var listenerBacklogMaxSize = maxListenerBacklog()
 // GetTCPSockAddr the structured addresses based on the protocol and raw address.
 func GetTCPSockAddr(proto, addr string) (sa unix.Sockaddr, family int, tcpAddr *net.TCPAddr, ipv6only bool, err error) {
 	var tcpVersion string
-	
+
 	tcpAddr, err = net.ResolveTCPAddr(proto, addr)
 	if err != nil {
 		return
 	}
-	
+
 	tcpVersion, err = determineTCPProto(proto, tcpAddr)
 	if err != nil {
 		return
 	}
-	
+
 	switch tcpVersion {
 	case "tcp4":
 		family = unix.AF_INET
@@ -55,7 +56,7 @@ func GetTCPSockAddr(proto, addr string) (sa unix.Sockaddr, family int, tcpAddr *
 	default:
 		err = errors.ErrUnsupportedProtocol
 	}
-	
+
 	return
 }
 
@@ -63,20 +64,20 @@ func determineTCPProto(proto string, addr *net.TCPAddr) (string, error) {
 	// If the protocol is set to "tcp", we try to determine the actual protocol
 	// version from the size of the resolved IP address. Otherwise, we simple use
 	// the protocol given to us by the caller.
-	
+
 	if addr.IP.To4() != nil {
 		return "tcp4", nil
 	}
-	
+
 	if addr.IP.To16() != nil {
 		return "tcp6", nil
 	}
-	
+
 	switch proto {
 	case "tcp", "tcp4", "tcp6":
 		return proto, nil
 	}
-	
+
 	return "", errors.ErrUnsupportedTCPProtocol
 }
 
@@ -88,11 +89,11 @@ func tcpSocket(proto, addr string, passive bool, sockOpts ...Option) (fd int, ne
 		ipv6only bool
 		sa       unix.Sockaddr
 	)
-	
+
 	if sa, family, netAddr, ipv6only, err = GetTCPSockAddr(proto, addr); err != nil {
 		return
 	}
-	
+
 	if fd, err = sysSocket(family, unix.SOCK_STREAM, unix.IPPROTO_TCP); err != nil {
 		err = os.NewSyscallError("socket", err)
 		return
@@ -106,19 +107,19 @@ func tcpSocket(proto, addr string, passive bool, sockOpts ...Option) (fd int, ne
 			_ = unix.Close(fd)
 		}
 	}()
-	
+
 	if family == unix.AF_INET6 && ipv6only {
 		if err = SetIPv6Only(fd, 1); err != nil {
 			return
 		}
 	}
-	
+
 	for _, sockOpt := range sockOpts {
 		if err = sockOpt.SetSockOpt(fd, sockOpt.Opt); err != nil {
 			return
 		}
 	}
-	
+
 	if passive {
 		if err = os.NewSyscallError("bind", unix.Bind(fd, sa)); err != nil {
 			return
@@ -128,6 +129,6 @@ func tcpSocket(proto, addr string, passive bool, sockOpts ...Option) (fd int, ne
 	} else {
 		err = os.NewSyscallError("connect", unix.Connect(fd, sa))
 	}
-	
+
 	return
 }

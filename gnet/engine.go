@@ -24,8 +24,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/xen0tic/utils/gnet/internal/netpoll"
-	"github.com/xen0tic/utils/gnet/pkg/errors"
+	"github.com/panjf2000/gnet/v2/internal/netpoll"
+	"github.com/panjf2000/gnet/v2/pkg/errors"
 )
 
 type engine struct {
@@ -116,7 +116,7 @@ func (eng *engine) activateEventLoops(numEventLoop int) (err error) {
 				return
 			}
 			eng.lb.register(el)
-			
+
 			// Start the ticker.
 			if el.idx == 0 && eng.opts.Ticker {
 				striker = el
@@ -125,12 +125,12 @@ func (eng *engine) activateEventLoops(numEventLoop int) (err error) {
 			return
 		}
 	}
-	
+
 	// Start event-loops in background.
 	eng.startEventLoops()
-	
+
 	go striker.ticker(eng.tickerCtx)
-	
+
 	return
 }
 
@@ -149,10 +149,10 @@ func (eng *engine) activateReactors(numEventLoop int) error {
 			return err
 		}
 	}
-	
+
 	// Start sub reactors in background.
 	eng.startSubReactors()
-	
+
 	if p, err := netpoll.OpenPoller(); err == nil {
 		el := new(eventloop)
 		el.ln = eng.ln
@@ -164,7 +164,7 @@ func (eng *engine) activateReactors(numEventLoop int) error {
 			return err
 		}
 		eng.mainLoop = el
-		
+
 		// Start main reactor in background.
 		eng.wg.Add(1)
 		go func() {
@@ -174,12 +174,12 @@ func (eng *engine) activateReactors(numEventLoop int) error {
 	} else {
 		return err
 	}
-	
+
 	// Start the ticker.
 	if eng.opts.Ticker {
 		go eng.mainLoop.ticker(eng.tickerCtx)
 	}
-	
+
 	return nil
 }
 
@@ -187,16 +187,16 @@ func (eng *engine) start(numEventLoop int) error {
 	if eng.opts.ReusePort || eng.ln.network == "udp" {
 		return eng.activateEventLoops(numEventLoop)
 	}
-	
+
 	return eng.activateReactors(numEventLoop)
 }
 
 func (eng *engine) stop(s Engine) {
 	// Wait on a signal for shutdown
 	eng.waitForShutdown()
-	
+
 	eng.eventHandler.OnShutdown(s)
-	
+
 	// Notify all loops to close by closing all listeners
 	eng.lb.iterate(func(i int, el *eventloop) bool {
 		err := el.poller.UrgentTrigger(func(_ interface{}) error { return errors.ErrEngineShutdown }, nil)
@@ -205,7 +205,7 @@ func (eng *engine) stop(s Engine) {
 		}
 		return true
 	})
-	
+
 	if eng.mainLoop != nil {
 		eng.ln.close()
 		err := eng.mainLoop.poller.UrgentTrigger(func(_ interface{}) error { return errors.ErrEngineShutdown }, nil)
@@ -213,28 +213,28 @@ func (eng *engine) stop(s Engine) {
 			eng.opts.Logger.Errorf("failed to call UrgentTrigger on main event-loop when stopping engine: %v", err)
 		}
 	}
-	
+
 	// Wait on all loops to complete reading events
 	eng.wg.Wait()
-	
+
 	eng.closeEventLoops()
-	
+
 	if eng.mainLoop != nil {
 		err := eng.mainLoop.poller.Close()
 		if err != nil {
 			eng.opts.Logger.Errorf("failed to close poller when stopping engine: %v", err)
 		}
 	}
-	
+
 	// Stop the ticker.
 	if eng.opts.Ticker {
 		eng.cancelTicker()
 	}
-	
+
 	atomic.StoreInt32(&eng.inShutdown, 1)
 }
 
-func serve(eventHandler EventHandler, listener *listener, options *Options, protoAddr string) error {
+func run(eventHandler EventHandler, listener *listener, options *Options, protoAddr string) error {
 	// Figure out the proper number of event-loops/goroutines to run.
 	numEventLoop := 1
 	if options.Multicore {
@@ -243,12 +243,12 @@ func serve(eventHandler EventHandler, listener *listener, options *Options, prot
 	if options.NumEventLoop > 0 {
 		numEventLoop = options.NumEventLoop
 	}
-	
+
 	eng := new(engine)
 	eng.opts = options
 	eng.eventHandler = eventHandler
 	eng.ln = listener
-	
+
 	switch options.LB {
 	case RoundRobin:
 		eng.lb = new(roundRobinLoadBalancer)
@@ -257,27 +257,27 @@ func serve(eventHandler EventHandler, listener *listener, options *Options, prot
 	case SourceAddrHash:
 		eng.lb = new(sourceAddrHashLoadBalancer)
 	}
-	
+
 	eng.cond = sync.NewCond(&sync.Mutex{})
 	if eng.opts.Ticker {
 		eng.tickerCtx, eng.cancelTicker = context.WithCancel(context.Background())
 	}
-	
+
 	e := Engine{eng}
 	switch eng.eventHandler.OnBoot(e) {
 	case None:
 	case Shutdown:
 		return nil
 	}
-	
+
 	if err := eng.start(numEventLoop); err != nil {
 		eng.closeEventLoops()
 		eng.opts.Logger.Errorf("gnet engine is stopping with error: %v", err)
 		return err
 	}
 	defer eng.stop(e)
-	
+
 	allEngines.Store(protoAddr, eng)
-	
+
 	return nil
 }

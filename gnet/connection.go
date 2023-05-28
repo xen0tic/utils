@@ -22,17 +22,17 @@ import (
 	"io"
 	"net"
 	"os"
-	"sync/atomic"
 	"time"
 
-	gio "github.com/xen0tic/utils/gnet/internal/io"
-	"github.com/xen0tic/utils/gnet/internal/netpoll"
-	"github.com/xen0tic/utils/gnet/internal/socket"
-	"github.com/xen0tic/utils/gnet/internal/toolkit"
-	"github.com/xen0tic/utils/gnet/pkg/buffer/elastic"
-	gerrors "github.com/xen0tic/utils/gnet/pkg/errors"
-	bsPool "github.com/xen0tic/utils/gnet/pkg/pool/byteslice"
 	"golang.org/x/sys/unix"
+
+	"github.com/panjf2000/gnet/v2/internal/bs"
+	gio "github.com/panjf2000/gnet/v2/internal/io"
+	"github.com/panjf2000/gnet/v2/internal/netpoll"
+	"github.com/panjf2000/gnet/v2/internal/socket"
+	"github.com/panjf2000/gnet/v2/pkg/buffer/elastic"
+	gerrors "github.com/panjf2000/gnet/v2/pkg/errors"
+	bsPool "github.com/panjf2000/gnet/v2/pkg/pool/byteslice"
 )
 
 type conn struct {
@@ -48,44 +48,20 @@ type conn struct {
 	fd             int                     // file descriptor
 	isDatagram     bool                    // UDP protocol
 	opened         bool                    // connection opened event fired
-	
-	KeyValueContext
-	
-	idleTime   time.Duration
-	activeTime atomic.Int64
 }
 
-func newTCPConn(fd int, el *eventloop, sa unix.Sockaddr,
-	idleTime time.Duration, localAddr, remoteAddr net.Addr) (c *conn) {
+func newTCPConn(fd int, el *eventloop, sa unix.Sockaddr, localAddr, remoteAddr net.Addr) (c *conn) {
 	c = &conn{
 		fd:         fd,
 		peer:       sa,
 		loop:       el,
 		localAddr:  localAddr,
 		remoteAddr: remoteAddr,
-		idleTime:   idleTime,
 	}
 	c.outboundBuffer, _ = elastic.New(el.engine.opts.WriteBufferCap)
 	c.pollAttachment = netpoll.GetPollAttachment()
 	c.pollAttachment.FD, c.pollAttachment.Callback = fd, c.handleEvents
-	
-	if c.idleTime > 0 {
-		_ = c.activeTime.Swap(time.Now().Unix())
-		time.AfterFunc(c.idleTime, c.closeTimeoutConn())
-	}
 	return
-}
-
-func (c *conn) closeTimeoutConn() func() {
-	return func() {
-		now := time.Now()
-		intervals := now.Sub(time.Unix(c.activeTime.Load(), 0))
-		if intervals >= c.idleTime {
-			_ = c.Close()
-		} else {
-			time.AfterFunc(c.idleTime, c.closeTimeoutConn())
-		}
-	}
 }
 
 func (c *conn) releaseTCP() {
@@ -96,13 +72,13 @@ func (c *conn) releaseTCP() {
 	if addr, ok := c.localAddr.(*net.TCPAddr); ok && c.localAddr != c.loop.ln.addr {
 		bsPool.Put(addr.IP)
 		if len(addr.Zone) > 0 {
-			bsPool.Put(toolkit.StringToBytes(addr.Zone))
+			bsPool.Put(bs.StringToBytes(addr.Zone))
 		}
 	}
 	if addr, ok := c.remoteAddr.(*net.TCPAddr); ok {
 		bsPool.Put(addr.IP)
 		if len(addr.Zone) > 0 {
-			bsPool.Put(toolkit.StringToBytes(addr.Zone))
+			bsPool.Put(bs.StringToBytes(addr.Zone))
 		}
 	}
 	c.localAddr = nil
@@ -133,13 +109,13 @@ func (c *conn) releaseUDP() {
 	if addr, ok := c.localAddr.(*net.UDPAddr); ok && c.localAddr != c.loop.ln.addr {
 		bsPool.Put(addr.IP)
 		if len(addr.Zone) > 0 {
-			bsPool.Put(toolkit.StringToBytes(addr.Zone))
+			bsPool.Put(bs.StringToBytes(addr.Zone))
 		}
 	}
 	if addr, ok := c.remoteAddr.(*net.UDPAddr); ok {
 		bsPool.Put(addr.IP)
 		if len(addr.Zone) > 0 {
-			bsPool.Put(toolkit.StringToBytes(addr.Zone))
+			bsPool.Put(bs.StringToBytes(addr.Zone))
 		}
 	}
 	c.localAddr = nil
@@ -155,11 +131,11 @@ func (c *conn) open(buf []byte) error {
 		_, _ = c.outboundBuffer.Write(buf)
 		return nil
 	}
-	
+
 	if err == nil && n < len(buf) {
 		_, _ = c.outboundBuffer.Write(buf[n:])
 	}
-	
+
 	return err
 }
 
@@ -171,7 +147,7 @@ func (c *conn) write(data []byte) (n int, err error) {
 		_, _ = c.outboundBuffer.Write(data)
 		return
 	}
-	
+
 	var sent int
 	if sent, err = unix.Write(c.fd, data); err != nil {
 		// A temporary error occurs, append the data to outbound buffer, writing it back to the peer in the next round.
@@ -194,14 +170,14 @@ func (c *conn) writev(bs [][]byte) (n int, err error) {
 	for _, b := range bs {
 		n += len(b)
 	}
-	
+
 	// If there is pending data in outbound buffer, the current data ought to be appended to the outbound buffer
 	// for maintaining the sequence of network packets.
 	if !c.outboundBuffer.IsEmpty() {
 		_, _ = c.outboundBuffer.Writev(bs)
 		return
 	}
-	
+
 	var sent int
 	if sent, err = gio.Writev(c.fd, bs); err != nil {
 		// A temporary error occurs, append the data to outbound buffer, writing it back to the peer in the next round.
@@ -239,11 +215,11 @@ func (c *conn) asyncWrite(itf interface{}) (err error) {
 	if !c.opened {
 		return nil
 	}
-	
+
 	hook := itf.(*asyncWriteHook)
 	_, err = c.write(hook.data)
 	if hook.callback != nil {
-		_ = hook.callback(c)
+		_ = hook.callback(c, err)
 	}
 	return
 }
@@ -257,11 +233,11 @@ func (c *conn) asyncWritev(itf interface{}) (err error) {
 	if !c.opened {
 		return nil
 	}
-	
+
 	hook := itf.(*asyncWritevHook)
 	_, err = c.writev(hook.data)
 	if hook.callback != nil {
-		_ = hook.callback(c)
+		_ = hook.callback(c, err)
 	}
 	return
 }
@@ -322,7 +298,7 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 	if inBufferLen >= n {
 		return c.loop.cache.Bytes(), err
 	}
-	
+
 	remaining := n - inBufferLen
 	c.loop.cache.Write(c.buffer[:remaining])
 	c.buffer = c.buffer[remaining:]
@@ -349,7 +325,7 @@ func (c *conn) Peek(n int) (buf []byte, err error) {
 	if inBufferLen >= n {
 		return c.loop.cache.Bytes(), err
 	}
-	
+
 	remaining := n - inBufferLen
 	c.loop.cache.Write(c.buffer[:remaining])
 	return c.loop.cache.Bytes(), err
@@ -366,12 +342,12 @@ func (c *conn) Discard(n int) (int, error) {
 		c.buffer = c.buffer[n:]
 		return n, nil
 	}
-	
+
 	discarded, _ := c.inboundBuffer.Discard(n)
 	if discarded < inBufferLen {
 		return discarded, nil
 	}
-	
+
 	remaining := n - inBufferLen
 	c.buffer = c.buffer[remaining:]
 	return n, nil
@@ -415,7 +391,7 @@ func (c *conn) Flush() error {
 	if c.outboundBuffer.IsEmpty() {
 		return nil
 	}
-	
+
 	return c.loop.write(c)
 }
 
@@ -427,15 +403,15 @@ func (c *conn) OutboundBuffered() int {
 	return c.outboundBuffer.Buffered()
 }
 
-func (c *conn) SetDeadline(_ time.Time) error {
+func (*conn) SetDeadline(_ time.Time) error {
 	return gerrors.ErrUnsupportedOp
 }
 
-func (c *conn) SetReadDeadline(_ time.Time) error {
+func (*conn) SetReadDeadline(_ time.Time) error {
 	return gerrors.ErrUnsupportedOp
 }
 
-func (c *conn) SetWriteDeadline(_ time.Time) error {
+func (*conn) SetWriteDeadline(_ time.Time) error {
 	return gerrors.ErrUnsupportedOp
 }
 
@@ -462,7 +438,7 @@ func (c *conn) AsyncWrite(buf []byte, callback AsyncCallback) error {
 	if c.isDatagram {
 		defer func() {
 			if callback != nil {
-				_ = callback(nil)
+				_ = callback(nil, nil)
 			}
 		}()
 		return c.sendTo(buf)
@@ -481,7 +457,7 @@ func (c *conn) Wake(callback AsyncCallback) error {
 	return c.loop.poller.UrgentTrigger(func(_ interface{}) (err error) {
 		err = c.loop.wake(c)
 		if callback != nil {
-			_ = callback(c)
+			_ = callback(c, err)
 		}
 		return
 	}, nil)
@@ -491,7 +467,7 @@ func (c *conn) CloseWithCallback(callback AsyncCallback) error {
 	return c.loop.poller.Trigger(func(_ interface{}) (err error) {
 		err = c.loop.closeConn(c, nil)
 		if callback != nil {
-			_ = callback(c)
+			_ = callback(c, err)
 		}
 		return
 	}, nil)
@@ -502,16 +478,4 @@ func (c *conn) Close() error {
 		err = c.loop.closeConn(c, nil)
 		return
 	}, nil)
-}
-
-func (c *conn) SetKeyContext(key string, value interface{}) {
-	c.SetKeyValue(key, value)
-}
-
-func (c *conn) GetKeyContext(key string) (interface{}, bool) {
-	return c.GetKeyValue(key)
-}
-
-func (c *conn) SetSocketTimeOut(t time.Duration) {
-	c.idleTime = t
 }

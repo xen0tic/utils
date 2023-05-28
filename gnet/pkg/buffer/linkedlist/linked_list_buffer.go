@@ -18,7 +18,7 @@ import (
 	"io"
 	"math"
 
-	bsPool "github.com/xen0tic/utils/gnet/pkg/pool/byteslice"
+	bsPool "github.com/panjf2000/gnet/v2/pkg/pool/byteslice"
 )
 
 type node struct {
@@ -44,7 +44,7 @@ func (llb *Buffer) Read(p []byte) (n int, err error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	
+
 	for b := llb.pop(); b != nil; b = llb.pop() {
 		m := copy(p[n:], b.buf)
 		n += m

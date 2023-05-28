@@ -19,7 +19,7 @@
 package gnet
 
 import (
-	"github.com/xen0tic/utils/gnet/pkg/errors"
+	"github.com/panjf2000/gnet/v2/pkg/errors"
 )
 
 type server struct {

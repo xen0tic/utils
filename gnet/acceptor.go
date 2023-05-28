@@ -21,11 +21,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/xen0tic/utils/gnet/internal/netpoll"
-	"github.com/xen0tic/utils/gnet/internal/socket"
-	"github.com/xen0tic/utils/gnet/pkg/errors"
-	"github.com/xen0tic/utils/gnet/pkg/logging"
 	"golang.org/x/sys/unix"
+
+	"github.com/panjf2000/gnet/v2/internal/netpoll"
+	"github.com/panjf2000/gnet/v2/internal/socket"
+	"github.com/panjf2000/gnet/v2/pkg/errors"
+	"github.com/panjf2000/gnet/v2/pkg/logging"
 )
 
 func (eng *engine) accept(fd int, _ netpoll.IOEvent) error {
@@ -40,16 +41,16 @@ func (eng *engine) accept(fd int, _ netpoll.IOEvent) error {
 	if err = os.NewSyscallError("fcntl nonblock", unix.SetNonblock(nfd, true)); err != nil {
 		return err
 	}
-	
+
 	remoteAddr := socket.SockaddrToTCPOrUnixAddr(sa)
 	if eng.opts.TCPKeepAlive > 0 && eng.ln.network == "tcp" {
 		err = socket.SetKeepAlivePeriod(nfd, int(eng.opts.TCPKeepAlive.Seconds()))
 		logging.Error(err)
 	}
-	
+
 	el := eng.lb.next(remoteAddr)
-	c := newTCPConn(nfd, el, sa, eng.opts.IdleTime, el.ln.addr, remoteAddr)
-	
+	c := newTCPConn(nfd, el, sa, el.ln.addr, remoteAddr)
+
 	err = el.poller.UrgentTrigger(el.register, c)
 	if err != nil {
 		eng.opts.Logger.Errorf("UrgentTrigger() failed due to error: %v", err)
@@ -63,7 +64,7 @@ func (el *eventloop) accept(fd int, ev netpoll.IOEvent) error {
 	if el.ln.network == "udp" {
 		return el.readUDP(fd, ev)
 	}
-	
+
 	nfd, sa, err := unix.Accept(el.ln.fd)
 	if err != nil {
 		if err == unix.EAGAIN {
@@ -75,14 +76,14 @@ func (el *eventloop) accept(fd int, ev netpoll.IOEvent) error {
 	if err = os.NewSyscallError("fcntl nonblock", unix.SetNonblock(nfd, true)); err != nil {
 		return err
 	}
-	
+
 	remoteAddr := socket.SockaddrToTCPOrUnixAddr(sa)
 	if el.engine.opts.TCPKeepAlive > 0 && el.ln.network == "tcp" {
 		err = socket.SetKeepAlivePeriod(nfd, int(el.engine.opts.TCPKeepAlive/time.Second))
 		logging.Error(err)
 	}
-	
-	c := newTCPConn(nfd, el, sa, el.engine.opts.IdleTime, el.ln.addr, remoteAddr)
+
+	c := newTCPConn(nfd, el, sa, el.ln.addr, remoteAddr)
 	if err = el.poller.AddRead(c.pollAttachment); err != nil {
 		return err
 	}

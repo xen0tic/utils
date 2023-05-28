@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/xen0tic/utils/gnet/internal/queue"
+	"github.com/panjf2000/gnet/v2/internal/queue"
 )
 
 func TestLockFreeQueue(t *testing.T) {
@@ -27,7 +27,7 @@ func TestLockFreeQueue(t *testing.T) {
 		}
 		wg.Done()
 	}()
-	
+
 	var counter int32
 	go func() {
 		for {
@@ -54,6 +54,6 @@ func TestLockFreeQueue(t *testing.T) {
 		wg.Done()
 	}()
 	wg.Wait()
-	
+
 	t.Logf("sent and received all %d tasks", 2*taskNum)
 }

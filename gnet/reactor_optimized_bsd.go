@@ -21,7 +21,7 @@ package gnet
 import (
 	"runtime"
 
-	"github.com/xen0tic/utils/gnet/pkg/errors"
+	"github.com/panjf2000/gnet/v2/pkg/errors"
 )
 
 func (el *eventloop) activateMainReactor(lockOSThread bool) {
@@ -29,9 +29,9 @@ func (el *eventloop) activateMainReactor(lockOSThread bool) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 	}
-	
+
 	defer el.engine.signalShutdown()
-	
+
 	err := el.poller.Polling()
 	if err == errors.ErrEngineShutdown {
 		el.engine.opts.Logger.Debugf("main reactor is exiting in terms of the demand from user, %v", err)
@@ -45,12 +45,12 @@ func (el *eventloop) activateSubReactor(lockOSThread bool) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 	}
-	
+
 	defer func() {
 		el.closeAllSockets()
 		el.engine.signalShutdown()
 	}()
-	
+
 	err := el.poller.Polling()
 	if err == errors.ErrEngineShutdown {
 		el.engine.opts.Logger.Debugf("event-loop(%d) is exiting in terms of the demand from user, %v", el.idx, err)
@@ -64,13 +64,13 @@ func (el *eventloop) run(lockOSThread bool) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 	}
-	
+
 	defer func() {
 		el.closeAllSockets()
 		el.ln.close()
 		el.engine.signalShutdown()
 	}()
-	
+
 	err := el.poller.Polling()
 	el.getLogger().Debugf("event-loop(%d) is exiting due to error: %v", el.idx, err)
 }

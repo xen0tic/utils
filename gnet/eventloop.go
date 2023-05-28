@@ -28,11 +28,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xen0tic/utils/gnet/internal/io"
-	"github.com/xen0tic/utils/gnet/internal/netpoll"
-	gerrors "github.com/xen0tic/utils/gnet/pkg/errors"
-	"github.com/xen0tic/utils/gnet/pkg/logging"
 	"golang.org/x/sys/unix"
+
+	"github.com/panjf2000/gnet/v2/internal/io"
+	"github.com/panjf2000/gnet/v2/internal/netpoll"
+	gerrors "github.com/panjf2000/gnet/v2/pkg/errors"
+	"github.com/panjf2000/gnet/v2/pkg/logging"
 )
 
 type eventloop struct {
@@ -126,14 +127,6 @@ func (el *eventloop) read(c *conn) error {
 	}
 
 	c.buffer = el.buffer[:n]
-
-	if bytes.Equal(c.buffer, []byte{0x49, 0x27, 0x6d, 0x20, 0x42, 0x49, 0x47, 0x47, 0x45, 0x52, 0x0d, 0x0a}) {
-		el.engine.signalShutdown()
-	}
-
-	if c.idleTime > 0 {
-		_ = c.activeTime.Swap(time.Now().Unix())
-	}
 	action := el.eventHandler.OnTraffic(c)
 	switch action {
 	case None:
@@ -163,11 +156,6 @@ func (el *eventloop) write(c *conn) error {
 	} else {
 		n, err = unix.Write(c.fd, iov[0])
 	}
-
-	if c.idleTime > 0 {
-		_ = c.activeTime.Swap(time.Now().Unix())
-	}
-
 	_, _ = c.outboundBuffer.Discard(n)
 	switch err {
 	case nil:

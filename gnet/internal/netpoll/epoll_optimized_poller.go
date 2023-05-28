@@ -23,10 +23,11 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/xen0tic/utils/gnet/internal/queue"
-	"github.com/xen0tic/utils/gnet/pkg/errors"
-	"github.com/xen0tic/utils/gnet/pkg/logging"
 	"golang.org/x/sys/unix"
+
+	"github.com/panjf2000/gnet/v2/internal/queue"
+	"github.com/panjf2000/gnet/v2/pkg/errors"
+	"github.com/panjf2000/gnet/v2/pkg/logging"
 )
 
 // Poller represents a poller which is in charge of monitoring file-descriptors.
@@ -118,7 +119,7 @@ func (p *Poller) Trigger(fn queue.TaskFunc, arg interface{}) (err error) {
 func (p *Poller) Polling() error {
 	el := newEventList(InitPollEventsCap)
 	var doChores bool
-	
+
 	msec := -1
 	for {
 		n, err := epollWait(p.fd, el.events, msec)
@@ -131,7 +132,7 @@ func (p *Poller) Polling() error {
 			return err
 		}
 		msec = 0
-		
+
 		for i := 0; i < n; i++ {
 			ev := &el.events[i]
 			pollAttachment := *(**PollAttachment)(unsafe.Pointer(&ev.data))
@@ -148,7 +149,7 @@ func (p *Poller) Polling() error {
 				_, _ = unix.Read(p.epa.FD, p.efdBuf)
 			}
 		}
-		
+
 		if doChores {
 			doChores = false
 			task := p.urgentAsyncTaskQueue.Dequeue()
@@ -184,7 +185,7 @@ func (p *Poller) Polling() error {
 				}
 			}
 		}
-		
+
 		if n == el.size {
 			el.expand()
 		} else if n < el.size>>1 {

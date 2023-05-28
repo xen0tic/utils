@@ -22,24 +22,25 @@ import (
 	"net"
 	"os"
 
-	"github.com/xen0tic/utils/gnet/pkg/errors"
 	"golang.org/x/sys/unix"
+
+	"github.com/panjf2000/gnet/v2/pkg/errors"
 )
 
 // GetUDPSockAddr the structured addresses based on the protocol and raw address.
 func GetUDPSockAddr(proto, addr string) (sa unix.Sockaddr, family int, udpAddr *net.UDPAddr, ipv6only bool, err error) {
 	var udpVersion string
-	
+
 	udpAddr, err = net.ResolveUDPAddr(proto, addr)
 	if err != nil {
 		return
 	}
-	
+
 	udpVersion, err = determineUDPProto(proto, udpAddr)
 	if err != nil {
 		return
 	}
-	
+
 	switch udpVersion {
 	case "udp4":
 		family = unix.AF_INET
@@ -53,7 +54,7 @@ func GetUDPSockAddr(proto, addr string) (sa unix.Sockaddr, family int, udpAddr *
 	default:
 		err = errors.ErrUnsupportedProtocol
 	}
-	
+
 	return
 }
 
@@ -61,20 +62,20 @@ func determineUDPProto(proto string, addr *net.UDPAddr) (string, error) {
 	// If the protocol is set to "udp", we try to determine the actual protocol
 	// version from the size of the resolved IP address. Otherwise, we simple use
 	// the protocol given to us by the caller.
-	
+
 	if addr.IP.To4() != nil {
 		return "udp4", nil
 	}
-	
+
 	if addr.IP.To16() != nil {
 		return "udp6", nil
 	}
-	
+
 	switch proto {
 	case "udp", "udp4", "udp6":
 		return proto, nil
 	}
-	
+
 	return "", errors.ErrUnsupportedUDPProtocol
 }
 
@@ -86,11 +87,11 @@ func udpSocket(proto, addr string, connect bool, sockOpts ...Option) (fd int, ne
 		ipv6only bool
 		sa       unix.Sockaddr
 	)
-	
+
 	if sa, family, netAddr, ipv6only, err = GetUDPSockAddr(proto, addr); err != nil {
 		return
 	}
-	
+
 	if fd, err = sysSocket(family, unix.SOCK_DGRAM, unix.IPPROTO_UDP); err != nil {
 		err = os.NewSyscallError("socket", err)
 		return
@@ -104,29 +105,29 @@ func udpSocket(proto, addr string, connect bool, sockOpts ...Option) (fd int, ne
 			_ = unix.Close(fd)
 		}
 	}()
-	
+
 	if family == unix.AF_INET6 && ipv6only {
 		if err = SetIPv6Only(fd, 1); err != nil {
 			return
 		}
 	}
-	
+
 	// Allow broadcast.
 	if err = os.NewSyscallError("setsockopt", unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_BROADCAST, 1)); err != nil {
 		return
 	}
-	
+
 	for _, sockOpt := range sockOpts {
 		if err = sockOpt.SetSockOpt(fd, sockOpt.Opt); err != nil {
 			return
 		}
 	}
-	
+
 	if connect {
 		err = os.NewSyscallError("connect", unix.Connect(fd, sa))
 	} else {
 		err = os.NewSyscallError("bind", unix.Bind(fd, sa))
 	}
-	
+
 	return
 }
