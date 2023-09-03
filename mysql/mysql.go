@@ -164,7 +164,7 @@ func (s *MySQL) InsertAlarm(deviceID uint64, latitude, longitude, speed, gpsInfo
 }
 
 func (s *MySQL) GetDeviceInfoSyncRedis() []SyncInfo {
-	query := "SELECT devices.id, devices.userId, devices.deviceImei, devices.deviceModel, devices.expireDate, device_models.modelName, " +
+	query := "SELECT devices.id, devices.userId, devices.deviceImei, device_models.deviceProtocol, devices.expireDate, device_models.modelName, " +
 		"device_manages.expireDate AS expireTime FROM devices LEFT JOIN device_models ON devices.deviceModel = device_models.id " +
 		"LEFT JOIN device_manages ON devices.deviceImei = device_manages.deviceImei;"
 	rows, _ := s.client.Query(query)
